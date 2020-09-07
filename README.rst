@@ -18,12 +18,27 @@ vyoma-download
 
 Download course contents from sanskritfromhome.in
 
-**Note**:
-You must be registered on https://sanskritfromhome.in/.
-You must be subscribed to the course that you vish to download.
-
 * Free software: MIT license
 * Documentation: https://vyoma-download.readthedocs.io.
+
+Usage
+-----
+
+To use vyoma-download in a project::
+
+    from vyoma_download.vyoma_download import Vyoma
+    vyoma = Vyoma(username, password)
+    login_successful = vyoma.login()
+
+To use vyoma-download from command line::
+
+    vyoma-download [course_id|course_url]
+
+**Note**:
+
+You must be registered on https://sanskritfromhome.in/.
+
+You must be subscribed to the course that you wish to download.
 
 
 Features
