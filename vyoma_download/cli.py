@@ -8,9 +8,26 @@ import os
 import sys
 import stat
 import getpass
+import logging
 import argparse
 
-from vyoma_download.vyoma_download import Vyoma, extract_course_id
+from . import __version__
+from vyoma_download.vyoma_download import User, Course
+import vyoma_download.verbose_logger as verbose_logger
+
+###############################################################################
+
+verbose_logger.install()
+
+# --------------------------------------------------------------------------- #
+
+root_logger = logging.getLogger()
+root_logger.addHandler(logging.StreamHandler()),
+root_logger.setLevel(logging.INFO)
+
+# --------------------------------------------------------------------------- #
+
+logger = logging.getLogger(__name__)
 
 ###############################################################################
 
@@ -27,23 +44,34 @@ def main():
     p.add_argument("-d", "--document", action='store_true',
                    help="Download documents only")
     p.add_argument("-o", "--output", default=None,
-                   help="Path of the directory to download content to.")
+                   help="Path of the directory to download content to")
     p.add_argument("-u", "--username", default=None)
     p.add_argument("-p", "--password", default=None)
+    p.add_argument("-f", "--force",
+                   help="Re-download all files even if already downloaded",
+                   action='store_true')
+    p.add_argument('--verbose',
+                   help='Enable verbose output',
+                   action='store_true')
+    p.add_argument('--debug',
+                   help='Enable debug information',
+                   action='store_true')
+    p.add_argument('--version',
+                   action='version',
+                   version='%(prog)s ' + __version__)
+
     args = vars(p.parse_args())
 
-    # download options
-    course_url = args['course-url']
-    audio = args['audio']
-    video = args['video']
-    document = args['document']
-    output = args['output']
+    if args['verbose']:
+        root_logger.setLevel(verbose_logger.VERBOSE)
+    if args['debug']:
+        root_logger.setLevel(logging.DEBUG)
 
     # credentials
     config = {}
 
     home_dir = os.path.expanduser('~')
-    config_file = os.path.join(home_dir, '.vyoma.cnf')
+    config_file = os.path.join(home_dir, '.vyoma.cfg')
     if os.path.isfile(config_file):
         with open(config_file) as f:
             lines = f.read().split('\n')
@@ -53,14 +81,14 @@ def main():
                 config[key.strip()] = value.strip()
 
     username = (
-        config.get('username') or
+        args['username'] or
         os.environ.get('VYOMA_USER') or
-        args['username']
+        config.get('username')
     )
     password = (
-        config.get('password') or
+        args['password'] or
         os.environ.get('VYOMA_PASS') or
-        args['password']
+        config.get('password')
     )
     manual = not (username and password)
 
@@ -72,9 +100,13 @@ def main():
     password = password.strip()
 
     # action
-    vyoma = Vyoma(username=username, password=password, download_dir=output)
-    if not vyoma.login():
-        print("Error: could not sign in.")
+    vyoma_user = User(
+        username=username,
+        password=password,
+        download_dir=args['output']
+    )
+    if not vyoma_user.login():
+        logging.error("Could not sign-in. Are the credentials correct?")
         return 1
 
     if manual:
@@ -83,19 +115,20 @@ def main():
             with open(config_file, 'w') as f:
                 f.write(f"username = {username}\n"
                         f"password = {password}")
-            print("Credentials saved!")
+            logging.info("Credentials saved!")
             os.chmod(config_file, stat.S_IREAD + stat.S_IWRITE)
 
-    if vyoma.logged_in:
-        course_id = extract_course_id(course_url)
-        vyoma.fetch_course_links(course_id)
-        if not(any([audio, video, document])):
-            vyoma.download_course_content(course_id)
+    if vyoma_user.logged_in:
+        course = Course(args['course-url'], user=vyoma_user)
+        course.fetch_links()
+        if not(any([args['audio'], args['video'], args['document']])):
+            course.download_content()
         else:
-            vyoma.download_course_content(course_id,
-                                          document=document,
-                                          audio=audio,
-                                          video=video)
+            course.download_content(
+                document=args['document'],
+                audio=args['audio'],
+                video=args['video']
+            )
     return 0
 
 ###############################################################################
