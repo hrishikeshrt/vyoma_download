@@ -134,6 +134,8 @@ def main():
                 audio=args['audio'],
                 video=args['video']
             )
+        course.show_status()
+
     return 0
 
 ###############################################################################

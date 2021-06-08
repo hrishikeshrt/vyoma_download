@@ -300,6 +300,8 @@ class Course:
                         self.logger.info(
                             f"File '{_path_basename}' is missing."
                         )
+                        link.path = None
+                        link.date = None
                         link.complete = False
 
                 try:
@@ -318,8 +320,8 @@ class Course:
                 if success:
                     count += 1
                     link.path = download_path
-                    link.complete = True
                     link.date = dt.strftime(dt.now(), '%Y.%m.%d')
+                    link.complete = True
                     self.save_progress()
                 else:
                     skip += 1
