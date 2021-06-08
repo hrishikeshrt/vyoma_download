@@ -47,9 +47,6 @@ def main():
                    help="Path of the directory to download content to")
     p.add_argument("-u", "--username", default=None)
     p.add_argument("-p", "--password", default=None)
-    p.add_argument("-f", "--force",
-                   help="Re-download all files even if already downloaded",
-                   action='store_true')
     p.add_argument('--verbose',
                    help='Enable verbose output',
                    action='store_true')
