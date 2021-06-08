@@ -47,6 +47,9 @@ def main():
                    help="Path of the directory to download content to")
     p.add_argument("-u", "--username", default=None)
     p.add_argument("-p", "--password", default=None)
+    p.add_argument('--status',
+                   help='Display status of the current course',
+                   action='store_true')
     p.add_argument('--verbose',
                    help='Enable verbose output',
                    action='store_true')
@@ -117,6 +120,11 @@ def main():
 
     if vyoma_user.logged_in:
         course = Course(args['course-url'], user=vyoma_user)
+
+        if args['status']:
+            course.show_status()
+            return 0
+
         course.fetch_links()
         if not(any([args['audio'], args['video'], args['document']])):
             course.download_content()

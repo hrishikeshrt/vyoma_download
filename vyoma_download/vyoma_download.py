@@ -31,9 +31,9 @@ SERVER = 'sanskritfromhome.in'
 class Link:
     url: str
     type: str
-    path: str
-    date: str
-    complete: bool
+    path: str = None
+    date: str = None
+    complete: bool = False
 
 ###############################################################################
 
@@ -78,9 +78,8 @@ class Course:
             self.location = os.path.join(self.user.download_dir, self.id)
             self._progress_file = os.path.join(self.location, '.progress.json')
             os.makedirs(self.location, exist_ok=True)
-            self.logger.verbose(f"Course will be saved to {self.location}.")
-            self.fetch_page()
-            self.extract_information()
+            self.logger.verbose(f"Course Directory: '{self.location}'")
+            self.extract_information(latest=True)
 
         self.logger.debug(f"{self.user}")
         self.logger.debug(f"{self}")
@@ -125,24 +124,69 @@ class Course:
         self.logger.verbose("Downloaded course page.")
         return self.html
 
-    def extract_information(self):
+    def extract_information(self, latest=False):
         '''Extract meta information from a course page'''
-        if not self.html:
+        if not self.html or latest:
             self.fetch_page()
 
-        # Extract Information
+        # Course Information
         description_div = self.soup.find('div', class_='course-description')
-        header_div = self.soup.find('header', class_='course-header')
-        footer_div = description_div.find('footer', class_='course-footer')
-
         self.description = str(description_div)
-        self.header = str(header_div)
-        self.footer = str(footer_div)
 
-        if 'Unsubscribe Now' in self.footer:
-            self.subscribed = True
-        if 'Take This Course' in self.footer:
+        header_div = self.soup.find('header', class_='course-header')
+        # self.header = str(header_div)
+        # footer_div = description_div.find('footer', class_='course-footer')
+        # self.footer = str(footer_div)
+
+        if header_div:
+            course_url_element = header_div.find('a')
+            if course_url_element and course_url_element.has_attr('href'):
+                if self.extract_id(course_url_element['href']) != self.id:
+                    self.logger.error("Invalid course header.")
+
+            if header_div.find('h5') and header_div.find('h5').find('b'):
+                self.title = header_div.find('h5').find('b').get_text().strip()
+            else:
+                self.title = self.id
+
+            teacher_element = header_div.find('a', class_='author')
+            if teacher_element:
+                self.teacher = teacher_element.get_text().strip()
+            else:
+                self.teacher = ''
+
+        # Subscription Information
+        id_input = self.soup.find('input', attrs={'name': 'course_id'})
+        course_form = id_input.find_parent('form')
+        form_inputs = course_form.find_all('input')
+        self._subscription_data = {
+            el['name']: el['value']
+            for el in form_inputs
+        }
+        if self._subscription_data.get('course_action') == 'add_user':
             self.subscribed = False
+        elif self._subscription_data.get('course_action') == 'remove_user':
+            self.subscribed = True
+        else:
+            self.logger.error("Course subscription button not found.")
+
+        self.logger.debug(f"Subscribed: {self.subscribed}")
+
+    def subscribe(self):
+        '''Subscribe to the course'''
+        self.extract_information(latest=True)
+        if not self.subscribed:
+            self.logger.info("Subscribing to the course ...")
+            self.post(self.url, data=self._subscription_data)
+            self.extract_information(latest=True)
+            if not self.subscribed:
+                self.logger.error("Could not subscribe to the course.")
+            else:
+                self.logger.info("Subscription successful.")
+        else:
+            self.logger.info("Already subscribed to the course.")
+
+        return self.subscribed
 
     def fetch_links(self):
         '''
@@ -153,12 +197,11 @@ class Course:
         links : dict
             Links to audio, video and documents from the course.
         '''
-        if not self.html:
-            self.fetch_page()
-
         if not self.subscribed:
-            self.logger.error("Not subscribed to the course.")
-            return False
+            self.subscribe()
+            if not self.subscribed:
+                self.logger.error("Could not fetch content links.")
+                return False
 
         soup = self.soup
         links = self.links
@@ -196,8 +239,11 @@ class Course:
             True if the download funcion completed successfully.
             Does not mean that all the files were downloaded successfully.
         '''
-        if not self.html:
-            self.fetch_page()
+        if not self.subscribed:
+            self.subscribe()
+            if not self.subscribed:
+                self.logger.error("Could not download the content.")
+                return False
 
         with open(os.path.join(self.location, 'description.html'), 'w') as f:
             f.write(self.description)
@@ -210,13 +256,7 @@ class Course:
         for _type, _links in links.items():
             for _link in _links:
                 if _link not in self.progress:
-                    self.progress[_link] = Link(
-                        url=_link,
-                        type=_type,
-                        path=None,
-                        date=None,
-                        complete=False
-                    )
+                    self.progress[_link] = Link(url=_link, type=_type)
 
         if video:
             video_file = os.path.join(self.location, 'video_links.txt')
@@ -249,11 +289,18 @@ class Course:
             for _link in links[dl]:
                 link = self.progress[_link]
                 if link.complete:
-                    self.logger.info(
-                        f"File '{link.path}' is already downloaded!"
-                    )
                     self.logger.debug(f"{link}")
-                    continue
+                    if os.path.isfile(link.path):
+                        _path_basename = os.path.basename(link.path)
+                        self.logger.info(
+                            f"File '{_path_basename}' is already downloaded!"
+                        )
+                        continue
+                    else:
+                        self.logger.info(
+                            f"File '{_path_basename}' is missing."
+                        )
+                        link.complete = False
 
                 try:
                     download_path = download_file(
@@ -262,8 +309,10 @@ class Course:
                         session=self.user.session
                     )
                     success = bool(download_path)
-                except Exception as e:
-                    print(e)
+                except Exception:
+                    self.logger.exception(
+                        f"An error occurred while downloading '{link.url}'."
+                    )
                     success = False
 
                 if success:
@@ -271,7 +320,6 @@ class Course:
                     link.path = download_path
                     link.complete = True
                     link.date = dt.strftime(dt.now(), '%Y.%m.%d')
-                    # save progress for future
                     self.save_progress()
                 else:
                     skip += 1
@@ -306,6 +354,40 @@ class Course:
 
     # ----------------------------------------------------------------------- #
 
+    def show_status(self):
+        '''Show the status of the course content'''
+        links = self.fetch_links() if not self.links else self.links
+
+        # Load last progress
+        self.load_progress()
+        for _type, _links in links.items():
+            for _link in _links:
+                if _link not in self.progress:
+                    self.progress[_link] = Link(url=_link, type=_type)
+
+        information = {
+            'id': self.id,
+            'title': self.title,
+            'teacher': self.teacher
+        }
+        status = {}
+        for _, link in self.progress.items():
+            if link.type not in status:
+                status[link.type] = {'total': 0, 'downloaded': 0}
+            status[link.type]['total'] += 1
+            status[link.type]['downloaded'] += link.complete
+
+        for k, v in status.items():
+            v['percent'] = (
+                round((v['downloaded'] / v['total']) * 100, 2)
+                if v['total'] else
+                0
+            )
+
+        information.update(status)
+        print(json.dumps(information, ensure_ascii=False, indent=2))
+        return information
+
     def load_progress(self):
         '''
         Load download progress
@@ -335,7 +417,10 @@ class Course:
         Links are then stored as a dictionary.
         '''
         with open(self._progress_file, 'w', encoding='utf-8') as f:
-            json.dump({k: asdict(v) for k, v in self.progress.items()}, f)
+            json.dump({
+                k: asdict(v)
+                for k, v in self.progress.items()
+            }, f, indent=2, ensure_ascii=False)
             self.logger.verbose("Saved progress information.")
 
     # ----------------------------------------------------------------------- #
@@ -386,7 +471,7 @@ class User:
             self.download_dir = vyoma_dir
 
         os.makedirs(self.download_dir, exist_ok=True)
-        self.logger.verbose(f"Downloads will be stored in {self.download_dir}")
+        self.logger.verbose(f"Download Directory: '{self.download_dir}'")
 
     def login(self):
         '''Login to sanskritfromhome.in'''
@@ -414,7 +499,8 @@ class User:
         r = self.get(self.home_url)
         self.logged_in = ('Sign Out' in r.text and 'Sign In' not in r.text)
         self.logger.verbose(
-            f"Login as {'successful' if self.logged_in else 'failed'}."
+            f"Login as '{self.username}' "
+            f"{'successful' if self.logged_in else 'failed'}."
         )
         return self.logged_in
 
