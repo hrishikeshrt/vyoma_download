@@ -10,29 +10,37 @@ with open('README.rst') as readme_file:
 with open('HISTORY.rst') as history_file:
     history = history_file.read()
 
-requirements = ["requests", "requests-downloader", "beautifulsoup4"]
+requirements = [
+    "requests",
+    "requests-downloader",
+    "beautifulsoup4",
+    "tabulate"
+]
 
-setup_requirements = []
+setup_requirements = ['pytest-runner', ]
 
-test_requirements = []
+test_requirements = ['pytest>=3', ]
 
 setup(
     author="Hrishikesh Terdalkar",
     author_email='hrishikeshrt@linuxmail.org',
     python_requires='>=3.6',
     classifiers=[
-        'Development Status :: 3 - Alpha',
+        'Development Status :: 4 - Beta',
         'License :: OSI Approved :: MIT License',
         'Natural Language :: English',
+        'Topic :: Internet',
+        'Topic :: Utilities',
         'Programming Language :: Python :: 3',
         'Programming Language :: Python :: 3.6',
         'Programming Language :: Python :: 3.7',
         'Programming Language :: Python :: 3.8',
+        'Programming Language :: Python :: 3.9',
     ],
-    description="Download course contents from sanskritfromhome.in",
+    description="Download course contents from sanskritfromhome.org",
     entry_points={
         'console_scripts': [
-            'vyoma-download=vyoma_download.cli:main',
+            'vyoma-dl=vyoma_download.cli:main',
         ],
     },
     install_requires=requirements,
