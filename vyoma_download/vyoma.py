@@ -13,8 +13,13 @@ from typing import Dict
 
 from tqdm import tqdm
 
-from edmingle import EdmingleAPI
-from utils import pretty_name
+from .edmingle import EdmingleAPI
+from .utils import pretty_name
+from .verbose_logger import install as install_logger
+
+###############################################################################
+
+install_logger()
 
 ###############################################################################
 
