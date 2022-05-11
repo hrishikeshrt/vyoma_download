@@ -11,23 +11,25 @@ import getpass
 import logging
 import argparse
 
+from tabulate import tabulate
+
 from . import __version__
-from vyoma_download.vyoma_download import User, Course
-import vyoma_download.verbose_logger as verbose_logger
+from .verbose_logger import VERBOSE, install as install_logger
+from .vyoma import Vyoma
 
 ###############################################################################
 
-verbose_logger.install()
+install_logger()
 
 # --------------------------------------------------------------------------- #
 
-root_logger = logging.getLogger()
-root_logger.addHandler(logging.StreamHandler()),
-root_logger.setLevel(logging.INFO)
+ROOT_LOGGER = logging.getLogger()
+ROOT_LOGGER.addHandler(logging.StreamHandler()),
+ROOT_LOGGER.setLevel(logging.INFO)
 
 # --------------------------------------------------------------------------- #
 
-logger = logging.getLogger(__name__)
+LOGGER = logging.getLogger(__name__)
 
 ###############################################################################
 
@@ -36,36 +38,34 @@ def main():
     desc = "Download course contents from 'sanskritfromhome.in'."
 
     p = argparse.ArgumentParser(description=desc)
-    p.add_argument("course-url", help="URL of the relevant course")
-    p.add_argument("-v", "--video", action='store_true',
-                   help="Download video links only")
+    p.add_argument("course-pattern", help="URL of the relevant course")
     p.add_argument("-a", "--audio", action='store_true',
                    help="Download audios only")
     p.add_argument("-d", "--document", action='store_true',
                    help="Download documents only")
     p.add_argument("-o", "--output", default=None,
-                   help="Path of the directory to download content to")
+                   help="Path to the download directory")
     p.add_argument("-u", "--username", default=None)
     p.add_argument("-p", "--password", default=None)
     p.add_argument('--status',
-                   help='Display status of the current course',
-                   action='store_true')
+                   help="Display status of the current course",
+                   action="store_true")
     p.add_argument('--verbose',
-                   help='Enable verbose output',
-                   action='store_true')
+                   help="Enable verbose output",
+                   action="store_true")
     p.add_argument('--debug',
-                   help='Enable debug information',
-                   action='store_true')
+                   help="Enable debug information",
+                   action="store_true")
     p.add_argument('--version',
-                   action='version',
+                   action="version",
                    version='%(prog)s ' + __version__)
 
     args = vars(p.parse_args())
 
     if args['verbose']:
-        root_logger.setLevel(verbose_logger.VERBOSE)
+        ROOT_LOGGER.setLevel(VERBOSE)
     if args['debug']:
-        root_logger.setLevel(logging.DEBUG)
+        ROOT_LOGGER.setLevel(logging.DEBUG)
 
     # credentials
     config = {}
@@ -100,12 +100,12 @@ def main():
     password = password.strip()
 
     # action
-    vyoma_user = User(
+    vyoma_session = Vyoma(
         username=username,
         password=password,
         download_dir=args['output']
     )
-    if not vyoma_user.login():
+    if not vyoma_session.logged_in:
         logging.error("Could not sign-in. Are the credentials correct?")
         return 1
 
@@ -118,23 +118,42 @@ def main():
             logging.info("Credentials saved!")
             os.chmod(config_file, stat.S_IREAD + stat.S_IWRITE)
 
-    if vyoma_user.logged_in:
-        course = Course(args['course-url'], user=vyoma_user)
+    if vyoma_session.logged_in:
+        courses = vyoma_session.find_course(args['course-pattern'])
+        if courses:
+            print(tabulate(courses, headers={
+                "course_id": "ID",
+                "course_name": "Name",
+                "course_instructor": "Teacher"
+            }, tablefmt="fancy_grid", showindex="always"))
+            while True:
+                prompt = "Please choose the course index (default: 0): "
+                selection = input(prompt)
+                if not selection:
+                    selection = '0'
+                if selection not in map(str, range(len(courses))):
+                    ROOT_LOGGER.error("Invalid selection.")
+                else:
+                    selection = int(selection)
+                    course_id = courses[selection]["course_id"]
+                    break
 
-        if args['status']:
-            course.show_status()
+        if args["status"]:
+            vyoma_session.show_course_status(course_id)
             return 0
 
-        course.fetch_links()
-        if not(any([args['audio'], args['video'], args['document']])):
-            course.download_content()
-        else:
-            course.download_content(
-                document=args['document'],
-                audio=args['audio'],
-                video=args['video']
+        if not(any([args["audio"], args["document"]])):
+            vyoma_session.download_course(
+                course_id,
+                fetch_audio=True,
+                fetch_document=True
             )
-        course.show_status()
+        else:
+            vyoma_session.download_course(
+                course_id,
+                fetch_audio=args["audio"],
+                fetch_document=args["document"]
+            )
 
     return 0
 
