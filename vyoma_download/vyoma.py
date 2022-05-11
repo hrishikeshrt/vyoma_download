@@ -227,4 +227,38 @@ class Vyoma(EdmingleAPI):
         print("material:", json.dumps(material_count, indent=2))
         return download_log
 
+    def show_course_status(self, course_id: str):
+        c_response = self.get_course_classes(course_id)
+        course = c_response["courses"][0]
+        class_id = course["class_id"]
+        class_name = course["class_name"]
+        class_name_pretty = pretty_name(class_name)
+        tutor_name = course["tutor_name"]
+        print(f"Course: {class_name}")
+        print(f"Teacher: {tutor_name}")
+
+        course_dir = os.path.join(self.download_dir, class_name_pretty)
+        if not os.path.isdir(course_dir):
+            print("Course has not been downloaded yet.")
+            return
+
+        if not os.path.isfile(os.path.join(course_dir, "log.json")):
+            print("No saved download log found.")
+            return
+
+        print(f"Local Path: {course_dir}")
+        with open(os.path.join(course_dir, "log.json"), encoding="utf-8") as f:
+            download_log = json.load(f)
+
+        material_count = {}
+        for k, v in download_log["material"].items():
+            if isinstance(v, dict):
+                material_count[k] = {}
+                for k1, v1 in v.items():
+                    material_count[k][k1] = len(v1)
+            if isinstance(v, list):
+                material_count[k] = len(v)
+
+        print("material:", json.dumps(material_count, indent=2))
+
 ###############################################################################
