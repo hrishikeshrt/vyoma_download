@@ -63,11 +63,20 @@ class Vyoma(EdmingleAPI):
         if not os.path.isdir(self.download_dir):
             os.makedirs(self.download_dir)
 
-    def select_course(self, search_pattern: str) -> str:
-        pass
+    def find_course(self, search_pattern: str) -> str:
+        response = self.get_courses(search_pattern=search_pattern)
+        courses = []
+        for batch in response.get("batches", []):
+            if batch.get("master_batch_id"):
+                courses.append({
+                    "course_id": batch.get("master_batch_id"),
+                    "course_name": batch.get("master_batch_name"),
+                    "course_instructor": batch.get("tutor_name")
+                })
+        return courses
 
     def download_section(self, class_id: str, section_id: str) -> Dict:
-        pass
+        raise NotImplementedError
 
     def download_course(self, course_id: str) -> Dict:
         c_response = self.get_course_classes(course_id)
