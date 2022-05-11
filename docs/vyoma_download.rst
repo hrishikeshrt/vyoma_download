@@ -12,10 +12,42 @@ vyoma\_download.cli module
    :undoc-members:
    :show-inheritance:
 
-vyoma\_download.vyoma\_download module
+vyoma\_download.edmingle module
+-------------------------------
+
+.. automodule:: vyoma_download.edmingle
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+vyoma\_download.utils module
+----------------------------
+
+.. automodule:: vyoma_download.utils
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+vyoma\_download.verbose\_logger module
 --------------------------------------
 
-.. automodule:: vyoma_download.vyoma_download
+.. automodule:: vyoma_download.verbose_logger
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+vyoma\_download.vyoma module
+----------------------------
+
+.. automodule:: vyoma_download.vyoma
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+vyoma\_download.vyoma module
+----------------------------
+
+.. automodule:: vyoma_download.vyoma
    :members:
    :undoc-members:
    :show-inheritance:
