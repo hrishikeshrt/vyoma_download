@@ -78,7 +78,25 @@ class Vyoma(EdmingleAPI):
     def download_section(self, class_id: str, section_id: str) -> Dict:
         raise NotImplementedError
 
-    def download_course(self, course_id: str) -> Dict:
+    def download_course(self, course_id: str, fetch_audio: bool = False, fetch_document: bool = True) -> Dict:
+        """Download Course Content
+
+        Parameters
+        ----------
+        course_id : str
+            Course ID from Vyoma Edmingle Platform
+        fetch_audio : bool, optional
+            If true, the audios are downloaded.
+            The default is True.
+        fetch_document : bool, optional
+            If true, the adocuments are downloaded.
+            The default is True.
+
+        Returns
+        -------
+        Dict
+            Complete download log
+        """
         c_response = self.get_course_classes(course_id)
         course = c_response["courses"][0]
         class_id = course["class_id"]
