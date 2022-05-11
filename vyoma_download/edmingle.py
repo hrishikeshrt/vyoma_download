@@ -8,7 +8,7 @@ Edmingle API
 
 import json
 import logging
-from functools import cached_property
+# from functools import cached_property
 from typing import Dict
 
 import requests
@@ -254,7 +254,7 @@ class EdmingleAPI:
 
     # ----------------------------------------------------------------------- #
 
-    @cached_property
+    @property
     def user_agent(self) -> str:
         return (
             "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:92.0) "
