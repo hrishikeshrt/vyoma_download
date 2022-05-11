@@ -9,7 +9,9 @@ Utility Scripts
 
 
 def pretty_name(coursename: str) -> str:
-    table = str.maketrans({"-": " ", ":": " ",})
+    table = str.maketrans({
+        "-": " ", ":": " ", "&": " and ", "(": " ", ")": " "
+    })
     return "_".join(coursename.lower().translate(table).split())
 
 
