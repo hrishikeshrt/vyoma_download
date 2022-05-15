@@ -27,10 +27,6 @@ ROOT_LOGGER = logging.getLogger()
 ROOT_LOGGER.addHandler(logging.StreamHandler()),
 ROOT_LOGGER.setLevel(logging.INFO)
 
-# --------------------------------------------------------------------------- #
-
-LOGGER = logging.getLogger(__name__)
-
 ###############################################################################
 
 
@@ -99,15 +95,18 @@ def main():
     username = username.strip()
     password = password.strip()
 
-    # action
+    # initiate vyoma session
+
     vyoma_session = Vyoma(
         username=username,
         password=password,
         download_dir=args['output']
     )
     if not vyoma_session.logged_in:
-        logging.error("Could not sign-in. Are the credentials correct?")
+        ROOT_LOGGER.error("Could not sign-in. Are the credentials correct?")
         return 1
+
+    # login successful
 
     if manual:
         answer = input("Save credentials for future use? (Y/n)")
@@ -115,45 +114,47 @@ def main():
             with open(config_file, 'w') as f:
                 f.write(f"username = {username}\n"
                         f"password = {password}")
-            logging.info("Credentials saved!")
+            ROOT_LOGGER.info("Credentials saved!")
             os.chmod(config_file, stat.S_IREAD + stat.S_IWRITE)
 
-    if vyoma_session.logged_in:
-        courses = vyoma_session.find_course(args['course-pattern'])
-        if courses:
-            print(tabulate(courses, headers={
-                "course_id": "ID",
-                "course_name": "Name",
-                "course_instructor": "Teacher"
-            }, tablefmt="fancy_grid", showindex="always"))
-            while True:
-                prompt = "Please choose the course index (default: 0): "
-                selection = input(prompt)
-                if not selection:
-                    selection = '0'
-                if selection not in map(str, range(len(courses))):
-                    ROOT_LOGGER.error("Invalid selection.")
-                else:
-                    selection = int(selection)
-                    course_id = courses[selection]["course_id"]
-                    break
+    courses = vyoma_session.find_course(args['course-pattern'])
+    if not courses:
+        ROOT_LOGGER.error("Course not found. Please try a different pattern.")
+        return 1
 
-        if args["status"]:
-            vyoma_session.show_course_status(course_id)
-            return 0
-
-        if not(any([args["audio"], args["document"]])):
-            vyoma_session.download_course(
-                course_id,
-                fetch_audio=True,
-                fetch_document=True
-            )
+    print(tabulate(courses, headers={
+        "course_id": "ID",
+        "course_name": "Name",
+        "course_instructor": "Teacher"
+    }, tablefmt="fancy_grid", showindex="always"))
+    while True:
+        prompt = "Please choose the course index (default: 0): "
+        selection = input(prompt)
+        if not selection:
+            selection = '0'
+        if selection not in map(str, range(len(courses))):
+            ROOT_LOGGER.error("Invalid selection.")
         else:
-            vyoma_session.download_course(
-                course_id,
-                fetch_audio=args["audio"],
-                fetch_document=args["document"]
-            )
+            selection = int(selection)
+            course_id = courses[selection]["course_id"]
+            break
+
+    if args["status"]:
+        vyoma_session.show_course_status(course_id)
+        return 0
+
+    if not(any([args["audio"], args["document"]])):
+        vyoma_session.download_course(
+            course_id,
+            fetch_audio=True,
+            fetch_document=True
+        )
+    else:
+        vyoma_session.download_course(
+            course_id,
+            fetch_audio=args["audio"],
+            fetch_document=args["document"]
+        )
 
     return 0
 
